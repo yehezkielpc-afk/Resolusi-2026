@@ -4,6 +4,15 @@ import { buildLetterGeometry, loadFont } from './letterUtil.js';
 import { GESTURE_CONFIG as CFG } from './config.js';
 
 const SPAWN_POSITION = new THREE.Vector3(0, 0, 0);
+// A hand briefly lost and re-found elsewhere in frame produces one large
+// per-tick delta; a real intentional move rarely exceeds ~15% of frame size
+// between detection ticks, so anything past this is almost certainly a
+// tracking glitch, not the user's actual hand motion.
+const MAX_DELTA = 0.15;
+
+function clampDelta(v) {
+  return Math.max(-MAX_DELTA, Math.min(MAX_DELTA, v));
+}
 
 export class SceneManager {
   constructor(canvas) {
@@ -141,6 +150,12 @@ export class SceneManager {
 
   translateControlled(dxNorm, dyNorm) {
     if (!this.controlled) return;
+    if (!Number.isFinite(dxNorm) || !Number.isFinite(dyNorm)) return;
+    // A hand briefly lost and re-found elsewhere in frame can otherwise produce
+    // one huge delta; clamp it so a bad reading can't fling the object off-screen
+    // (and, combined with a NaN/Infinity guess elsewhere, poison the transform for good).
+    dxNorm = clampDelta(dxNorm);
+    dyNorm = clampDelta(dyNorm);
     // dxNorm/dyNorm are normalized-image-space deltas; image y grows downward.
     this.controlled.mesh.position.x += dxNorm * CFG.dragSpeed;
     this.controlled.mesh.position.y -= dyNorm * CFG.dragSpeed;
@@ -148,13 +163,18 @@ export class SceneManager {
 
   rotateControlled(dxNorm, dyNorm) {
     if (!this.controlled) return;
+    if (!Number.isFinite(dxNorm) || !Number.isFinite(dyNorm)) return;
+    dxNorm = clampDelta(dxNorm);
+    dyNorm = clampDelta(dyNorm);
     this.controlled.mesh.rotation.y += dxNorm * CFG.rotateSpeed;
     this.controlled.mesh.rotation.x += dyNorm * CFG.rotateSpeed;
   }
 
   scaleControlled(factor) {
     if (!this.controlled) return;
+    if (!Number.isFinite(factor) || factor <= 0) return;
     const s = this.controlled.mesh.scale.x * factor;
+    if (!Number.isFinite(s)) return;
     const clamped = Math.min(CFG.maxScale, Math.max(CFG.minScale, s));
     this.controlled.mesh.scale.setScalar(clamped);
   }

@@ -223,17 +223,25 @@ class App {
   }
 
   _loop() {
-    // Hand-tracking inference is the expensive part (runs on the main thread) --
-    // throttle it independently of the render loop so the 3D view stays smooth
-    // instead of the whole page janking/freezing while the model runs every frame.
-    const now = performance.now();
-    if (now - this._lastDetectTime >= CFG.detectIntervalMs) {
-      this._lastDetectTime = now;
-      const rawHands = this.tracker.detect();
-      const frame = this.engine.update(rawHands);
-      this._handleGestures(frame);
+    // Anything thrown in here must not stop requestAnimationFrame from being
+    // rescheduled below -- an uncaught error would otherwise silently kill the
+    // loop forever (the page just stops updating, indistinguishable from a freeze,
+    // even though the browser/OS itself is fine).
+    try {
+      // Hand-tracking inference is the expensive part (runs on the main thread) --
+      // throttle it independently of the render loop so the 3D view stays smooth
+      // instead of the whole page janking/freezing while the model runs every frame.
+      const now = performance.now();
+      if (now - this._lastDetectTime >= CFG.detectIntervalMs) {
+        this._lastDetectTime = now;
+        const rawHands = this.tracker.detect();
+        const frame = this.engine.update(rawHands);
+        this._handleGestures(frame);
+      }
+      this.scene.render();
+    } catch (err) {
+      console.error('Render loop error (dipulihkan, lanjut ke frame berikutnya):', err);
     }
-    this.scene.render();
     requestAnimationFrame(() => this._loop());
   }
 }
