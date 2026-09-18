@@ -68,10 +68,10 @@ class App {
 
     allowBtn.addEventListener('click', async () => {
       allowBtn.disabled = true;
-      allowBtn.textContent = 'Meminta izin kamera...';
+      allowBtn.textContent = 'Memulai...';
       errorEl.style.display = 'none';
       try {
-        await this._initAndRun();
+        await this._initAndRun((status) => { allowBtn.textContent = status; });
         overlay.classList.add('hidden');
       } catch (err) {
         console.error('Gesture Tracker gagal memulai:', err);
@@ -101,8 +101,8 @@ class App {
     return 'Gagal mengakses kamera/model: ' + message;
   }
 
-  async _initAndRun() {
-    this.hud.setStatus('Memuat modul 3D & AI...');
+  async _initAndRun(onStatus) {
+    onStatus('Memuat modul 3D...');
     const [{ SceneManager }, { HandTracker }] = await Promise.all([
       import('./sceneManager.js'),
       import('./handTracker.js'),
@@ -110,10 +110,7 @@ class App {
     this.scene = new SceneManager(this.canvas);
     this.tracker = new HandTracker(this.video);
 
-    this.hud.setStatus('Mengaktifkan kamera...');
-    await this.tracker.init();
-
-    this.hud.setStatus('');
+    await this.tracker.init(onStatus);
     this.scene.setModeAndName(this.mode, this.currentName);
     this.scene.setColor(COLORS[this.colorIndex].hex);
     this._loop();
