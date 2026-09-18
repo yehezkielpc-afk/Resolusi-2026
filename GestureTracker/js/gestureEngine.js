@@ -82,9 +82,9 @@ function classifySingleHandGesture(lm) {
     return { name: crossState === 'crossed' ? 'fingersCrossed' : 'peaceSign', fingers: f };
   }
 
-  // Shaka / hang-loose: thumb + pinky extended, index/middle/ring curled. Used two-handed.
-  if (f.thumb && f.pinky && f.indexCurled && f.middleCurled && f.ringCurled) {
-    return { name: 'shaka', fingers: f };
+  // Thumb + index extended, middle/ring/pinky curled. Used two-handed to resize.
+  if (f.thumb && f.index && f.middleCurled && f.ringCurled && f.pinkyCurled) {
+    return { name: 'pinchOpen', fingers: f };
   }
 
   // Fist: everything curled (thumb tucked in, not held out).
@@ -174,10 +174,10 @@ export class GestureEngine {
       const pairDelta = this.prevPairDist == null ? 0 : pairDist - this.prevPairDist;
       this.prevPairDist = pairDist;
 
-      const bothShaka = a.gesture === 'shaka' && b.gesture === 'shaka';
+      const bothPinch = a.gesture === 'pinchOpen' && b.gesture === 'pinchOpen';
       const bothOpen = a.gesture === 'openHand' && b.gesture === 'openHand';
 
-      if (bothShaka) {
+      if (bothPinch) {
         const t = CFG.scaleDeltaThreshold;
         twoHand = { name: pairDelta > t ? 'scaleUp' : pairDelta < -t ? 'scaleDown' : 'scaleHold', pairDist, pairDelta };
       } else if (bothOpen) {

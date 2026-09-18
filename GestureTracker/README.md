@@ -27,8 +27,8 @@ karena Three.js dan MediaPipe dimuat dari CDN). Izinkan akses kamera saat dimint
 - Semua jari terbuka → rotasi objek yang sedang dikendalikan
 
 **Dua tangan**
-- Shaka (jempol+kelingking terbuka) saling menjauh → perbesar
-- Shaka saling mendekat → perkecil
+- Ibu jari + telunjuk terbuka (jari lain menekuk) di kedua tangan, saling menjauh → perbesar
+- Ibu jari + telunjuk terbuka di kedua tangan, saling mendekat → perkecil
 - Kedua tangan terbuka, tidak menyilang → tempatkan objek jadi permanen
 - Kedua tangan terbuka, menyilang → hapus objek permanen terakhir
 
