@@ -14,6 +14,15 @@ function clampDelta(v) {
   return Math.max(-MAX_DELTA, Math.min(MAX_DELTA, v));
 }
 
+function quaternionFromBasis(basis) {
+  const m = new THREE.Matrix4().makeBasis(
+    new THREE.Vector3(basis.x.x, basis.x.y, basis.x.z),
+    new THREE.Vector3(basis.y.x, basis.y.y, basis.y.z),
+    new THREE.Vector3(basis.z.x, basis.z.y, basis.z.z)
+  );
+  return new THREE.Quaternion().setFromRotationMatrix(m);
+}
+
 export class SceneManager {
   constructor(canvas) {
     this.canvas = canvas;
@@ -42,6 +51,7 @@ export class SceneManager {
     this.colorHex = 0x1d6fe1;
 
     this.controlled = null; // { mesh, edges }
+    this._rotateBaseline = null; // { handQuatInverse, meshQuatStart } while an openHand rotate is active
     this.fontReady = false;
     loadFont().then(() => { this.fontReady = true; }).catch((err) => {
       console.error('Gagal memuat font huruf 3D:', err);
@@ -161,6 +171,7 @@ export class SceneManager {
     this.controlled.mesh.position.y -= dyNorm * CFG.dragSpeed;
   }
 
+  // Incremental rotate (drag-to-rotate feel) — kept for the keyboard fallback only.
   rotateControlled(dxNorm, dyNorm) {
     if (!this.controlled) return;
     if (!Number.isFinite(dxNorm) || !Number.isFinite(dyNorm)) return;
@@ -168,6 +179,33 @@ export class SceneManager {
     dyNorm = clampDelta(dyNorm);
     this.controlled.mesh.rotation.y += dxNorm * CFG.rotateSpeed;
     this.controlled.mesh.rotation.x += dyNorm * CFG.rotateSpeed;
+  }
+
+  // Orientation-tracking rotate: the object turns to match how much the hand
+  // itself has turned since the gesture started, not how far it slid across the
+  // frame. beginRotate() anchors a baseline; updateRotate() re-derives the
+  // object's absolute orientation from that baseline every frame (never
+  // incremental), so it's self-correcting even across an object rebuild mid-gesture.
+  beginRotate(basis) {
+    if (!this.controlled) return;
+    const handQuat = quaternionFromBasis(basis);
+    this._rotateBaseline = {
+      handQuatInverse: handQuat.clone().invert(),
+      meshQuatStart: this.controlled.mesh.quaternion.clone(),
+    };
+  }
+
+  updateRotate(basis) {
+    if (!this.controlled || !this._rotateBaseline) return;
+    const handQuat = quaternionFromBasis(basis);
+    const delta = handQuat.clone().multiply(this._rotateBaseline.handQuatInverse);
+    const newQuat = delta.multiply(this._rotateBaseline.meshQuatStart);
+    if (![newQuat.x, newQuat.y, newQuat.z, newQuat.w].every(Number.isFinite)) return;
+    this.controlled.mesh.quaternion.copy(newQuat);
+  }
+
+  endRotate() {
+    this._rotateBaseline = null;
   }
 
   scaleControlled(factor) {
@@ -181,6 +219,7 @@ export class SceneManager {
 
   placeCurrent() {
     if (!this.controlled) return;
+    this._rotateBaseline = null; // the next controlled object starts a fresh gesture, if any
     const placedMesh = this.controlled.mesh;
     placedMesh.remove(this.controlled.edges);
     this.controlled.edges.geometry.dispose();

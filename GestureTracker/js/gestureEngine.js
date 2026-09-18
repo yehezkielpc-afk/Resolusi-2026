@@ -1,5 +1,5 @@
 // Turns raw MediaPipe HandLandmarker output into named gestures per frame.
-import { angleAt, dist, lerpPoint } from './vec3.js';
+import { angleAt, dist, lerpPoint, sub, cross, normalize } from './vec3.js';
 import { GESTURE_CONFIG as CFG } from './config.js';
 
 const IDX = {
@@ -42,6 +42,18 @@ function analyzeFingers(lm) {
     ringCurled: fingerCurled(lm, IDX.ringMCP, IDX.ringPIP, IDX.ringTIP),
     pinkyCurled: fingerCurled(lm, IDX.pinkyMCP, IDX.pinkyPIP, IDX.pinkyTIP),
   };
+}
+
+// Orthonormal basis describing the palm's own orientation (not the hand's position),
+// used to drive rotation by how much the hand actually turns/tilts rather than how
+// far it slides across the frame. Framework-agnostic plain vectors; sceneManager.js
+// turns this into a THREE.Quaternion since that's the only place that needs three.js.
+function computeHandBasis(lm) {
+  const xAxis = normalize(sub(lm[IDX.indexMCP], lm[IDX.pinkyMCP])); // across the palm
+  let yAxis = normalize(sub(lm[IDX.middleMCP], lm[IDX.wrist])); // wrist -> fingers
+  const zAxis = normalize(cross(xAxis, yAxis)); // palm normal
+  yAxis = normalize(cross(zAxis, xAxis)); // re-orthogonalize
+  return { x: xAxis, y: yAxis, z: zAxis };
 }
 
 function thumbDirection(lm) {
@@ -160,7 +172,8 @@ export class GestureEngine {
       const prevC = this.prevCentroid[label];
       const delta = prevC ? { x: c.x - prevC.x, y: c.y - prevC.y, z: c.z - prevC.z } : { x: 0, y: 0, z: 0 };
       this.prevCentroid[label] = c;
-      hands.push({ label, landmarks: lm, gesture: gestureName, fingers: rawGesture.fingers, centroid: c, delta, size: handSize(lm) });
+      const basis = computeHandBasis(lm);
+      hands.push({ label, landmarks: lm, gesture: gestureName, fingers: rawGesture.fingers, centroid: c, delta, basis, size: handSize(lm) });
     }
 
     for (const label of ['Left', 'Right']) {

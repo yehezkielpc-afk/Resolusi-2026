@@ -21,6 +21,14 @@ export function normalize(v) {
   return { x: v.x / len, y: v.y / len, z: v.z / len };
 }
 
+export function cross(a, b) {
+  return {
+    x: a.y * b.z - a.z * b.y,
+    y: a.z * b.x - a.x * b.z,
+    z: a.x * b.y - a.y * b.x,
+  };
+}
+
 export function lerpPoint(a, b, t) {
   return {
     x: a.x + (b.x - a.x) * t,

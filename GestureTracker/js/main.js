@@ -54,6 +54,7 @@ class App {
     };
 
     this._lastDetectTime = 0;
+    this._rotatingHandLabel = null; // which hand (if any) is currently driving orientation-tracked rotation
 
     this._bindKeyboardFallback();
   }
@@ -190,6 +191,7 @@ class App {
     }
 
     let anyThumbsUp = false, anyThumbsDown = false, anyCrossed = false, anyPeace = false;
+    let rotatingHand = null;
 
     for (const hand of hands) {
       if (hand.gesture === 'thumbsUp') anyThumbsUp = true;
@@ -201,9 +203,25 @@ class App {
         if (hand.gesture === 'fist') {
           this.scene.translateControlled(hand.delta.x, hand.delta.y);
         } else if (hand.gesture === 'openHand') {
-          this.scene.rotateControlled(hand.delta.x, hand.delta.y);
+          rotatingHand = hand;
         }
       }
+    }
+
+    // Rotation tracks the hand's actual orientation (turn/tilt), not how far it
+    // slides across the frame — beginRotate() anchors a baseline the first tick
+    // the gesture is seen, updateRotate() re-derives the absolute orientation
+    // from it every subsequent tick, and endRotate() releases it once the hand
+    // stops showing openHand (so the next gesture starts its own fresh baseline).
+    if (rotatingHand) {
+      if (this._rotatingHandLabel !== rotatingHand.label) {
+        this.scene.beginRotate(rotatingHand.basis);
+        this._rotatingHandLabel = rotatingHand.label;
+      }
+      this.scene.updateRotate(rotatingHand.basis);
+    } else if (this._rotatingHandLabel !== null) {
+      this.scene.endRotate();
+      this._rotatingHandLabel = null;
     }
 
     if (this.triggers.next.update(anyThumbsUp)) this._advance(1);
