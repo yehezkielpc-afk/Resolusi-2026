@@ -32,7 +32,10 @@ export class HandTracker {
   }
 
   _initWorker() {
-    this.worker = new Worker(new URL('./handWorker.js', import.meta.url), { type: 'module' });
+    // Classic (not module) worker on purpose -- see the comment at the top of
+    // handWorker.js for why: MediaPipe's WASM loader needs importScripts(), which
+    // browsers disable inside type:"module" workers.
+    this.worker = new Worker(new URL('./handWorker.js', import.meta.url), { type: 'classic' });
 
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
