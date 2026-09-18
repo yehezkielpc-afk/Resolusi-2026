@@ -38,9 +38,12 @@ export class HandTracker {
     this.worker = new Worker(new URL('./handWorker.js', import.meta.url), { type: 'classic' });
 
     return new Promise((resolve, reject) => {
+      // Generous outer bound -- the worker's own per-step timeouts (handWorker.js)
+      // fire first with a more specific message in the normal failure case; this
+      // is only a last-resort catch-all if the worker never responds at all.
       const timer = setTimeout(() => {
-        reject(new Error('Waktu habis memuat model deteksi tangan (>30s). Kemungkinan jaringan/firewall memblokir permintaan ini.'));
-      }, 30000);
+        reject(new Error('Waktu habis memuat model deteksi tangan (>60s). Kemungkinan jaringan/firewall memblokir permintaan ini.'));
+      }, 60000);
 
       this.worker.onerror = (err) => {
         clearTimeout(timer);
