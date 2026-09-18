@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Gesture Tracker 3D</title>
+<link rel="stylesheet" href="style.css" />
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+  <video id="webcam" autoplay playsinline muted></video>
+  <canvas id="scene-canvas"></canvas>
+
+  <div id="hud-status" class="panel status-panel" style="display:none"></div>
+
+  <div id="camera-consent" class="consent-overlay">
+    <div class="panel consent-card">
+      <div class="consent-icon">📷</div>
+      <h1>Izinkan Akses Kamera</h1>
+      <p>
+        Aplikasi ini membaca gerakan tangan lewat webcam untuk membentuk dan
+        mengendalikan bangun ruang / huruf 3D secara langsung. Video kamera
+        diproses di perangkat Anda sendiri (di browser) dan tidak dikirim atau
+        disimpan ke server mana pun.
+      </p>
+      <button id="consent-allow-btn" class="consent-btn">Izinkan &amp; Mulai</button>
+      <p id="consent-error" class="consent-error" style="display:none"></p>
+    </div>
+  </div>
+
+  <header class="hud-top">
+    <div class="hud-chip">
+      <span class="label">Mode</span>
+      <span id="hud-mode" class="value">-</span>
+    </div>
+    <div class="hud-chip">
+      <span class="label">Objek</span>
+      <span id="hud-name" class="value">-</span>
+    </div>
+    <div class="hud-chip">
+      <span class="label">Warna</span>
+      <span id="hud-color-swatch" class="swatch"></span>
+      <span id="hud-color-name" class="value">-</span>
+    </div>
+    <div class="hud-chip">
+      <span class="label">Objek Tersimpan</span>
+      <span id="hud-placed-count" class="value">0</span>
+    </div>
+  </header>
+
+  <div class="cam-preview">
+    <canvas id="overlay-canvas"></canvas>
+    <div class="gesture-readout">
+      <div>Kiri: <span id="hud-gesture-left">-</span></div>
+      <div>Kanan: <span id="hud-gesture-right">-</span></div>
+      <div>Dua tangan: <span id="hud-two-hand">-</span></div>
+    </div>
+  </div>
+
+  <aside class="panel instructions">
+    <h2>Gestur Satu Tangan</h2>
+    <ul>
+      <li><b>Jempol ke atas</b> — objek berikutnya (A→B→C)</li>
+      <li><b>Jempol ke bawah</b> — objek sebelumnya (Z→Y→X)</li>
+      <li><b>Telunjuk+tengah menyilang</b> — ganti mode bangun ruang ⇄ huruf</li>
+      <li><b>Telunjuk+tengah tidak menyilang</b> — ganti warna</li>
+      <li><b>Mengepal</b> — geser objek (belum permanen)</li>
+      <li><b>Semua jari terbuka</b> — rotasi objek</li>
+    </ul>
+    <h2>Gestur Dua Tangan</h2>
+    <ul>
+      <li><b>Shaka (jempol+kelingking) menjauh</b> — perbesar</li>
+      <li><b>Shaka mendekat</b> — perkecil</li>
+      <li><b>Kedua tangan terbuka, tidak menyilang</b> — tempatkan objek permanen</li>
+      <li><b>Kedua tangan terbuka, menyilang</b> — hapus objek terakhir</li>
+    </ul>
+    <h2>Keyboard (uji coba)</h2>
+    <p class="kb-help">WASD geser · QE/RF rotasi · Z/X skala · ↑/↓ ganti objek · Tab mode · C warna · Space tempatkan · Backspace hapus</p>
+  </aside>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
