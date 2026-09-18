@@ -36,16 +36,26 @@ export const GESTURE_CONFIG = {
   holdFrames: 4,
   // Milliseconds to block the same discrete gesture from re-firing.
   cooldownMs: 650,
-  // Finger curl angle (degrees) above which a non-thumb finger counts as "extended".
-  // Kept close together on purpose (small dead zone) so a naturally-held hand pose
-  // reliably lands on one side or the other instead of being classified as "neither".
-  fingerStraightAngleDeg: 140,
-  fingerCurledAngleDeg: 125,
-  // Thumb "away from palm" distance, relative to hand size (wrist->middle_mcp distance).
+  // Finger curl angle (degrees): 0% confidence "extended" at/below the low value,
+  // 100% at/above the high value, linear ramp between. Gesture matching (below)
+  // uses this as a continuous score rather than a hard cutoff, so a wide ramp here
+  // is what makes an in-between real-world finger pose still count for something
+  // instead of failing outright.
+  fingerStraightAngleDeg: 150,
+  fingerCurledAngleDeg: 110,
+  // Thumb "away from palm" distance, relative to hand size (wrist->middle_mcp
+  // distance): same ramp idea as the finger angles above, applied to the thumb's
+  // own distance-based extended/curled measure.
+  thumbCurledRatio: 0.22,
   thumbExtendedRatio: 0.45,
+  // Minimum average per-finger match score (0..1) a hand pose needs against a
+  // gesture's profile to be accepted at all -- see bestGestureProfile() in
+  // gestureEngine.js. Low enough to tolerate one ambiguous/misread finger out of
+  // five, high enough that an unrelated hand pose still won't falsely match.
+  gestureMatchThreshold: 0.65,
   // How long (ms) a hand keeps reporting its last recognized gesture after a frame
   // fails to classify it, to bridge brief single-frame misreads without added lag.
-  gestureStickyMs: 180,
+  gestureStickyMs: 220,
   // Vertical margin (relative to hand size) used to classify thumb up/down.
   thumbUpDownMarginRatio: 0.25,
   // Continuous gesture sensitivity.

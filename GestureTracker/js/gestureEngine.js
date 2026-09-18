@@ -11,37 +11,81 @@ const IDX = {
   pinkyMCP: 17, pinkyPIP: 18, pinkyDIP: 19, pinkyTIP: 20,
 };
 
-function fingerExtended(lm, mcp, pip, tip) {
-  const angle = angleAt(lm[mcp], lm[pip], lm[tip]);
-  return angle > CFG.fingerStraightAngleDeg;
+// Continuous 0..1 "how extended is this finger" confidence instead of a hard
+// boolean — 0 at/below the curled angle, 1 at/above the straight angle, linear
+// ramp between. A real hand rarely sits exactly at either extreme, so this lets
+// a finger be "a bit ambiguous" without breaking the whole gesture match below.
+function ramp(value, lowEdge, highEdge) {
+  const t = (value - lowEdge) / (highEdge - lowEdge);
+  return Math.max(0, Math.min(1, t));
 }
 
-function fingerCurled(lm, mcp, pip, tip) {
+function fingerConfidence(lm, mcp, pip, tip) {
   const angle = angleAt(lm[mcp], lm[pip], lm[tip]);
-  return angle < CFG.fingerCurledAngleDeg;
+  return ramp(angle, CFG.fingerCurledAngleDeg, CFG.fingerStraightAngleDeg);
 }
 
 function handSize(lm) {
   return dist(lm[IDX.wrist], lm[IDX.middleMCP]) || 1e-6;
 }
 
-function thumbExtended(lm) {
+function thumbConfidence(lm) {
   const size = handSize(lm);
-  return dist(lm[IDX.thumbTIP], lm[IDX.indexMCP]) / size > CFG.thumbExtendedRatio;
+  const distRatio = dist(lm[IDX.thumbTIP], lm[IDX.indexMCP]) / size;
+  return ramp(distRatio, CFG.thumbCurledRatio, CFG.thumbExtendedRatio);
 }
 
-function analyzeFingers(lm) {
+function fingerConfidences(lm) {
   return {
-    thumb: thumbExtended(lm),
-    index: fingerExtended(lm, IDX.indexMCP, IDX.indexPIP, IDX.indexTIP),
-    middle: fingerExtended(lm, IDX.middleMCP, IDX.middlePIP, IDX.middleTIP),
-    ring: fingerExtended(lm, IDX.ringMCP, IDX.ringPIP, IDX.ringTIP),
-    pinky: fingerExtended(lm, IDX.pinkyMCP, IDX.pinkyPIP, IDX.pinkyTIP),
-    indexCurled: fingerCurled(lm, IDX.indexMCP, IDX.indexPIP, IDX.indexTIP),
-    middleCurled: fingerCurled(lm, IDX.middleMCP, IDX.middlePIP, IDX.middleTIP),
-    ringCurled: fingerCurled(lm, IDX.ringMCP, IDX.ringPIP, IDX.ringTIP),
-    pinkyCurled: fingerCurled(lm, IDX.pinkyMCP, IDX.pinkyPIP, IDX.pinkyTIP),
+    thumb: thumbConfidence(lm),
+    index: fingerConfidence(lm, IDX.indexMCP, IDX.indexPIP, IDX.indexTIP),
+    middle: fingerConfidence(lm, IDX.middleMCP, IDX.middlePIP, IDX.middleTIP),
+    ring: fingerConfidence(lm, IDX.ringMCP, IDX.ringPIP, IDX.ringTIP),
+    pinky: fingerConfidence(lm, IDX.pinkyMCP, IDX.pinkyPIP, IDX.pinkyTIP),
   };
+}
+
+// Each profile names which fingers should be extended (1) or curled (0); a
+// finger left out (undefined) doesn't count toward that profile's score, e.g.
+// indexMiddlePair doesn't care what the thumb is doing.
+const GESTURE_PROFILES = [
+  { name: 'thumbsUpDown', thumb: 1, index: 0, middle: 0, ring: 0, pinky: 0 },
+  { name: 'indexMiddlePair', index: 1, middle: 1, ring: 0, pinky: 0 },
+  { name: 'pinchOpen', thumb: 1, index: 1, middle: 0, ring: 0, pinky: 0 },
+  { name: 'fist', thumb: 0, index: 0, middle: 0, ring: 0, pinky: 0 },
+  { name: 'openHand', thumb: 1, index: 1, middle: 1, ring: 1, pinky: 1 },
+];
+
+// Average, over each finger a profile actually cares about, how well the
+// measured confidence matches what that profile expects. 1.0 = perfect match,
+// 0.0 = every specified finger is doing the exact opposite of expected.
+function scoreProfile(conf, profile) {
+  let total = 0;
+  let count = 0;
+  for (const finger of ['thumb', 'index', 'middle', 'ring', 'pinky']) {
+    const expected = profile[finger];
+    if (expected === undefined) continue;
+    total += expected === 1 ? conf[finger] : 1 - conf[finger];
+    count++;
+  }
+  return count ? total / count : 0;
+}
+
+// Best-match against all known profiles instead of a strict boolean AND-chain:
+// tolerates one finger being ambiguous or flat-out misread instead of the whole
+// gesture failing to register, which is what a real hand + camera noise usually
+// produces rather than textbook-perfect finger states.
+function bestGestureProfile(conf) {
+  let best = null;
+  let bestScore = -1;
+  for (const profile of GESTURE_PROFILES) {
+    const score = scoreProfile(conf, profile);
+    if (score > bestScore) {
+      bestScore = score;
+      best = profile;
+    }
+  }
+  return { profile: best, score: bestScore };
 }
 
 // Orthonormal basis describing the palm's own orientation (not the hand's position),
@@ -76,40 +120,24 @@ function indexMiddleCrossState(lm) {
 }
 
 function classifySingleHandGesture(lm) {
-  const f = analyzeFingers(lm);
+  const conf = fingerConfidences(lm);
+  const { profile, score } = bestGestureProfile(conf);
 
-  const fourCurled = f.indexCurled && f.middleCurled && f.ringCurled && f.pinkyCurled;
-  const fourExtended = f.index && f.middle && f.ring && f.pinky;
+  if (score < CFG.gestureMatchThreshold) return { name: null, fingers: conf };
 
-  // Thumb up / down: thumb clearly out, the other four fingers curled into a loose fist.
-  if (f.thumb && fourCurled) {
+  if (profile.name === 'thumbsUpDown') {
     const dir = thumbDirection(lm);
-    if (dir === 'up') return { name: 'thumbsUp', fingers: f };
-    if (dir === 'down') return { name: 'thumbsDown', fingers: f };
+    if (dir === 'up') return { name: 'thumbsUp', fingers: conf };
+    if (dir === 'down') return { name: 'thumbsDown', fingers: conf };
+    return { name: null, fingers: conf }; // thumb out but not clearly up/down yet
   }
 
-  // Index + middle extended, ring + pinky curled -> crossed / not-crossed variants.
-  if (f.index && f.middle && f.ringCurled && f.pinkyCurled) {
+  if (profile.name === 'indexMiddlePair') {
     const crossState = indexMiddleCrossState(lm);
-    return { name: crossState === 'crossed' ? 'fingersCrossed' : 'peaceSign', fingers: f };
+    return { name: crossState === 'crossed' ? 'fingersCrossed' : 'peaceSign', fingers: conf };
   }
 
-  // Thumb + index extended, middle/ring/pinky curled. Used two-handed to resize.
-  if (f.thumb && f.index && f.middleCurled && f.ringCurled && f.pinkyCurled) {
-    return { name: 'pinchOpen', fingers: f };
-  }
-
-  // Fist: everything curled (thumb tucked in, not held out).
-  if (!f.thumb && fourCurled) {
-    return { name: 'fist', fingers: f };
-  }
-
-  // Open hand: all five fingers extended.
-  if (f.thumb && fourExtended) {
-    return { name: 'openHand', fingers: f };
-  }
-
-  return { name: null, fingers: f };
+  return { name: profile.name, fingers: conf };
 }
 
 class SmoothedHand {
