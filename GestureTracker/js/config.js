@@ -32,10 +32,15 @@ export const GESTURE_CONFIG = {
   // Milliseconds to block the same discrete gesture from re-firing.
   cooldownMs: 650,
   // Finger curl angle (degrees) above which a non-thumb finger counts as "extended".
-  fingerStraightAngleDeg: 150,
-  fingerCurledAngleDeg: 100,
+  // Kept close together on purpose (small dead zone) so a naturally-held hand pose
+  // reliably lands on one side or the other instead of being classified as "neither".
+  fingerStraightAngleDeg: 140,
+  fingerCurledAngleDeg: 125,
   // Thumb "away from palm" distance, relative to hand size (wrist->middle_mcp distance).
-  thumbExtendedRatio: 0.55,
+  thumbExtendedRatio: 0.45,
+  // How long (ms) a hand keeps reporting its last recognized gesture after a frame
+  // fails to classify it, to bridge brief single-frame misreads without added lag.
+  gestureStickyMs: 180,
   // Vertical margin (relative to hand size) used to classify thumb up/down.
   thumbUpDownMarginRatio: 0.25,
   // Continuous gesture sensitivity.
@@ -47,9 +52,10 @@ export const GESTURE_CONFIG = {
   // Smoothing factor (0..1) applied to landmark positions each frame.
   landmarkSmoothing: 0.5,
   // Minimum per-frame change in inter-hand distance (normalized) to register scale up/down.
-  scaleDeltaThreshold: 0.0015,
+  scaleDeltaThreshold: 0.001,
   // Max normalized tip-to-tip distance (relative to hand size) for index/middle to count as "crossed".
   crossFingersMaxDist: 0.45,
 };
 
-export const FONT_URL = 'https://unpkg.com/three@0.160.0/examples/fonts/helvetiker_bold.typeface.json';
+// Self-hosted (not unpkg) so it loads even on networks that throttle/block that CDN.
+export const FONT_URL = new URL('../fonts/helvetiker_bold.typeface.json', import.meta.url).href;

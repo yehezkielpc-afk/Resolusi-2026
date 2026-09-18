@@ -10,11 +10,18 @@ export function loadFont() {
   if (cachedFont) return Promise.resolve(cachedFont);
   if (loadingPromise) return loadingPromise;
   const loader = new FontLoader();
-  loadingPromise = new Promise((resolve, reject) => {
+  const loadPromise = new Promise((resolve, reject) => {
     loader.load(FONT_URL, (font) => {
       cachedFont = font;
       resolve(font);
     }, undefined, reject);
+  });
+  const timeout = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('Waktu habis memuat font huruf 3D.')), 15000);
+  });
+  loadingPromise = Promise.race([loadPromise, timeout]).catch((err) => {
+    loadingPromise = null; // allow retrying on next call instead of caching the failure
+    throw err;
   });
   return loadingPromise;
 }
@@ -24,7 +31,7 @@ export function buildLetterGeometry(letter) {
   const geo = new TextGeometry(letter, {
     font: cachedFont,
     size: 1.4,
-    depth: 0.45,
+    height: 0.45, // this three.js version's TextGeometry reads `height`, not `depth`, for extrusion thickness
     curveSegments: 8,
     bevelEnabled: true,
     bevelThickness: 0.04,

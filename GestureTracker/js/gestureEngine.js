@@ -1,5 +1,5 @@
 // Turns raw MediaPipe HandLandmarker output into named gestures per frame.
-import { angleAt, dist, lerpPoint, centroid } from './vec3.js';
+import { angleAt, dist, lerpPoint } from './vec3.js';
 import { GESTURE_CONFIG as CFG } from './config.js';
 
 const IDX = {
@@ -119,11 +119,25 @@ export class GestureEngine {
   constructor() {
     this.smoothers = { Left: new SmoothedHand(), Right: new SmoothedHand() };
     this.prevCentroid = { Left: null, Right: null };
+    this.lastGesture = { Left: { name: null, time: 0 }, Right: { name: null, time: 0 } };
     this.prevPairDist = null;
   }
 
   reset(label) {
     this.prevCentroid[label] = null;
+    this.lastGesture[label] = { name: null, time: 0 };
+  }
+
+  // Bridges brief single-frame misclassifications: if this frame didn't recognize a
+  // gesture but one was seen very recently, keep reporting it instead of flickering null.
+  _stickyGesture(label, rawName, now) {
+    if (rawName) {
+      this.lastGesture[label] = { name: rawName, time: now };
+      return rawName;
+    }
+    const last = this.lastGesture[label];
+    if (last.name && now - last.time < CFG.gestureStickyMs) return last.name;
+    return null;
   }
 
   /**
@@ -132,17 +146,21 @@ export class GestureEngine {
   update(rawHands) {
     const seen = new Set();
     const hands = [];
+    const now = performance.now();
 
     for (const raw of rawHands) {
       const label = raw.handedness;
       seen.add(label);
       const lm = this.smoothers[label].push(raw.landmarks);
-      const gesture = classifySingleHandGesture(lm);
-      const c = centroid(lm);
+      const rawGesture = classifySingleHandGesture(lm);
+      const gestureName = this._stickyGesture(label, rawGesture.name, now);
+      // Wrist position, not the full 21-point centroid: finger curl shifts the
+      // centroid on its own, adding noise unrelated to actual hand movement.
+      const c = { x: lm[IDX.wrist].x, y: lm[IDX.wrist].y, z: lm[IDX.wrist].z };
       const prevC = this.prevCentroid[label];
       const delta = prevC ? { x: c.x - prevC.x, y: c.y - prevC.y, z: c.z - prevC.z } : { x: 0, y: 0, z: 0 };
       this.prevCentroid[label] = c;
-      hands.push({ label, landmarks: lm, gesture: gesture.name, fingers: gesture.fingers, centroid: c, delta, size: handSize(lm) });
+      hands.push({ label, landmarks: lm, gesture: gestureName, fingers: rawGesture.fingers, centroid: c, delta, size: handSize(lm) });
     }
 
     for (const label of ['Left', 'Right']) {

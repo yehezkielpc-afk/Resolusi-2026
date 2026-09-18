@@ -31,7 +31,9 @@ export class SceneManager {
 
     this.controlled = null; // { mesh, edges }
     this.fontReady = false;
-    loadFont().then(() => { this.fontReady = true; });
+    loadFont().then(() => { this.fontReady = true; }).catch((err) => {
+      console.error('Gagal memuat font huruf 3D:', err);
+    });
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -84,7 +86,9 @@ export class SceneManager {
   _rebuildControlled() {
     if (this.mode === 'letter' && !this.fontReady) {
       // Defer until font finishes loading.
-      loadFont().then(() => this._rebuildControlled());
+      loadFont().then(() => this._rebuildControlled()).catch((err) => {
+        console.error('Gagal memuat font huruf 3D:', err);
+      });
       return;
     }
     const prevTransform = this.controlled
