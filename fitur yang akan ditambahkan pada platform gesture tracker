@@ -1,0 +1,15 @@
+MEMBUAT PLATFORM GESTURE TRACKER YANG TIAP KITA MELAKUKAN GESTUR TANGAN AKAN MEMBUAT BANGUN RUANG MAUPUN HURUF DALAM BENTUK 3D
+
+SETIAP PERINTAH UNTUK GESTURE TANGAN (MENGGUNAKAN SATU TANGAN):
+ibu jari/jempol terangkat keatas akan mengganti bangun ruang/huruf sesuai urutan (A>B>C)
+ibu jari/jempol terangkat kebawah akan mengganti bangun ruang/huruf tetapi urutannya berganti kebelakan (Z>Y>X)
+jari telunjuk dan jari tengah terangkat menyilang akan mengganti mode dari bangun ruang ke huruf begitu juga sebaliknya
+jari telunjuk dan jari tengah terangkat tidak menyilang akan mengganti warna pada bangun ruang/huruf (hitam,merah,kuning,hijau,biru,oranye,ungu,pink,coklat,putih)
+tangan mengepal akan menggeser bangun ruang/huruf yang sedang dikendalikan (masih belum menjadi objek tetap)
+tangan dengan seluruh jari terbuka akan merotasi bangun ruang/huruf yang sedang dikendalikan sesuai dengan pergerakan tangan (masih belum menjadi objek)
+
+SETIAP PPERINTAH UNTUK GESTURE TANGAN (MENGGUNAKAN DUA TANGAN):
+tangan saling menjauh dengan ibu jari dan jari kelingking terbuka akan memperbesar ukuran bangun ruang/huruf
+tangan saling mendekat dengan ibu jari dan jari kelingking terbuka akan memperkecil ukuran bangun ruang/huruf
+tangan terangkat tidak saling menyilang dan seluruh jari terangkat akan menjadikan bangun ruang/huruf yang dibuat ditaruh menjadi objek yang akan terus ada di layar
+tangan terangkat saling menyilang dengan seluruh jari terangkat akan menghapus objek sebelumnya yang ditaruh
