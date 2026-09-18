@@ -1,6 +1,7 @@
-import { HandTracker } from './handTracker.js';
+// Lightweight, CDN-independent imports only — this guarantees the consent button
+// always gets its click handler attached, even if the heavy three.js/MediaPipe
+// CDN modules (imported lazily below) fail to load in a given browser/network.
 import { GestureEngine } from './gestureEngine.js';
-import { SceneManager } from './sceneManager.js';
 import { Hud } from './hud.js';
 import { COLORS, SHAPE_NAMES, LETTERS, GESTURE_CONFIG as CFG } from './config.js';
 
@@ -30,9 +31,13 @@ class App {
     this.video = document.getElementById('webcam');
     this.canvas = document.getElementById('scene-canvas');
     this.hud = new Hud();
-    this.tracker = new HandTracker(this.video);
     this.engine = new GestureEngine();
-    this.scene = new SceneManager(this.canvas);
+
+    // Created lazily inside _initAndRun(), only once the user has clicked through
+    // the consent card — these depend on CDN modules (three.js, MediaPipe) that
+    // may fail to load, so they must never block constructing App itself.
+    this.tracker = null;
+    this.scene = null;
 
     this.mode = 'shape';
     this.shapeIndex = 0;
@@ -55,8 +60,8 @@ class App {
     return this.mode === 'shape' ? SHAPE_NAMES[this.shapeIndex] : LETTERS[this.letterIndex];
   }
 
-  /** Shows the consent card and waits for the user to explicitly opt in before touching the camera. */
-  async start() {
+  /** Binds the consent button immediately. Must not throw or await anything before addEventListener. */
+  bindConsentButton() {
     const overlay = document.getElementById('camera-consent');
     const allowBtn = document.getElementById('consent-allow-btn');
     const errorEl = document.getElementById('consent-error');
@@ -69,7 +74,8 @@ class App {
         await this._initAndRun();
         overlay.classList.add('hidden');
       } catch (err) {
-        errorEl.textContent = this._describeCameraError(err);
+        console.error('Gesture Tracker gagal memulai:', err);
+        errorEl.textContent = this._describeError(err);
         errorEl.style.display = 'block';
         allowBtn.disabled = false;
         allowBtn.textContent = 'Coba Lagi';
@@ -77,19 +83,36 @@ class App {
     });
   }
 
-  _describeCameraError(err) {
-    if (err.name === 'NotAllowedError') {
+  _describeError(err) {
+    const name = err?.name;
+    const message = String(err?.message || err || '');
+    if (name === 'NotAllowedError') {
       return 'Izin kamera ditolak. Klik ikon kamera di address bar browser untuk mengizinkan, lalu coba lagi.';
     }
-    if (err.name === 'NotFoundError') {
+    if (name === 'NotFoundError') {
       return 'Tidak ada kamera yang terdeteksi di perangkat ini.';
     }
-    return 'Gagal mengakses kamera/model: ' + err.message;
+    if (name === 'NotReadableError') {
+      return 'Kamera sedang dipakai aplikasi lain. Tutup aplikasi lain yang memakai kamera, lalu coba lagi.';
+    }
+    if (/failed to fetch|dynamically imported module|networkerror/i.test(message)) {
+      return 'Gagal memuat komponen 3D/AI dari CDN — kemungkinan diblokir ad-blocker, ekstensi privasi, atau firewall jaringan. Coba nonaktifkan sementara lalu klik lagi. (' + message + ')';
+    }
+    return 'Gagal mengakses kamera/model: ' + message;
   }
 
   async _initAndRun() {
-    this.hud.setStatus('Memuat model & mengaktifkan kamera...');
+    this.hud.setStatus('Memuat modul 3D & AI...');
+    const [{ SceneManager }, { HandTracker }] = await Promise.all([
+      import('./sceneManager.js'),
+      import('./handTracker.js'),
+    ]);
+    this.scene = new SceneManager(this.canvas);
+    this.tracker = new HandTracker(this.video);
+
+    this.hud.setStatus('Mengaktifkan kamera...');
     await this.tracker.init();
+
     this.hud.setStatus('');
     this.scene.setModeAndName(this.mode, this.currentName);
     this.scene.setColor(COLORS[this.colorIndex].hex);
@@ -102,21 +125,22 @@ class App {
     } else {
       this.letterIndex = (this.letterIndex + dir + LETTERS.length) % LETTERS.length;
     }
-    this.scene.setName(this.currentName);
+    this.scene?.setName(this.currentName);
   }
 
   _toggleMode() {
     this.mode = this.mode === 'shape' ? 'letter' : 'shape';
-    this.scene.setModeAndName(this.mode, this.currentName);
+    this.scene?.setModeAndName(this.mode, this.currentName);
   }
 
   _cycleColor() {
     this.colorIndex = (this.colorIndex + 1) % COLORS.length;
-    this.scene.setColor(COLORS[this.colorIndex].hex);
+    this.scene?.setColor(COLORS[this.colorIndex].hex);
   }
 
   _bindKeyboardFallback() {
     window.addEventListener('keydown', (e) => {
+      if (!this.scene) return; // not initialized yet (consent not granted)
       switch (e.key) {
         case 'ArrowUp': this._advance(1); break;
         case 'ArrowDown': this._advance(-1); break;
@@ -209,4 +233,12 @@ class App {
 }
 
 const app = new App();
-app.start();
+app.bindConsentButton();
+
+// Last-resort safety net: surface truly unexpected errors instead of a silently dead page.
+window.addEventListener('error', (e) => {
+  console.error('Unhandled error:', e.error || e.message);
+});
+window.addEventListener('unhandledrejection', (e) => {
+  console.error('Unhandled promise rejection:', e.reason);
+});
