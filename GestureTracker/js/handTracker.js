@@ -34,7 +34,10 @@ export class HandTracker {
 
     onStatus('Meminta izin kamera...');
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: 960, height: 720, facingMode: 'user' },
+      // `ideal` (not exact) so the browser can pick a supported mode instead of
+      // forcing a resize pass; 640x480 is plenty for landmark accuracy and cuts
+      // per-frame inference/copy cost noticeably vs. the previous 960x720.
+      video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
       audio: false,
     });
     this.video.srcObject = stream;

@@ -27,8 +27,13 @@ export const SHAPE_NAMES = [
 export const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 export const GESTURE_CONFIG = {
-  // Frames a discrete gesture must be held before it fires (debounce).
-  holdFrames: 6,
+  // Minimum ms between hand-detection runs (the expensive ML inference call).
+  // Decoupled from the render loop so a slow/CPU-only device still renders smoothly;
+  // gesture control doesn't need 60/sec sampling to feel responsive.
+  detectIntervalMs: 80,
+  // Detection *calls* (not render frames) a discrete gesture must be held before it
+  // fires. Tuned against detectIntervalMs above for a ~consistent real-world hold time.
+  holdFrames: 4,
   // Milliseconds to block the same discrete gesture from re-firing.
   cooldownMs: 650,
   // Finger curl angle (degrees) above which a non-thumb finger counts as "extended".

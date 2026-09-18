@@ -16,7 +16,10 @@ export class SceneManager {
     this.camera.lookAt(0, 0, 0);
 
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // Capped lower than devicePixelRatio's max (often 2-3 on laptops) — this runs
+    // alongside MediaPipe's own WebGL context, so keeping GPU fragment work down
+    // matters more here than on a page that owns the GPU alone.
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 
     this._setupLights();
     this._setupGround();

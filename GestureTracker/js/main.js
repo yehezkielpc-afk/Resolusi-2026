@@ -53,6 +53,8 @@ class App {
       delete: new DebounceTrigger(CFG.holdFrames, CFG.cooldownMs),
     };
 
+    this._lastDetectTime = 0;
+
     this._bindKeyboardFallback();
   }
 
@@ -221,9 +223,16 @@ class App {
   }
 
   _loop() {
-    const rawHands = this.tracker.detect();
-    const frame = this.engine.update(rawHands);
-    this._handleGestures(frame);
+    // Hand-tracking inference is the expensive part (runs on the main thread) --
+    // throttle it independently of the render loop so the 3D view stays smooth
+    // instead of the whole page janking/freezing while the model runs every frame.
+    const now = performance.now();
+    if (now - this._lastDetectTime >= CFG.detectIntervalMs) {
+      this._lastDetectTime = now;
+      const rawHands = this.tracker.detect();
+      const frame = this.engine.update(rawHands);
+      this._handleGestures(frame);
+    }
     this.scene.render();
     requestAnimationFrame(() => this._loop());
   }
