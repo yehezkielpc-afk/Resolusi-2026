@@ -1,5 +1,6 @@
 Resolusiku
 -konsisten untuk belajar coding tiap hari
--membuat platform motion capture
 -mempelajari lebih jauh mengenai git dan github
--menyelesaikan proyek repulse
+-menerima beberapa proyek baru untuk pembelajaran
+-belajar lebih dalam mengenai pronblem solving
+-memperbaiki jam tidur supaya tidak  kelelahan dan jatuh sakit ketika mengerjakan proyek
